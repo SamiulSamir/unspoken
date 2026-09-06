@@ -32,7 +32,6 @@
             font-family: 'Poppins', sans-serif;
             overflow-x: hidden;
             min-height: 100vh;
-            /* Deep, flowery dark aesthetic background using complex gradients */
             background-image: 
                 radial-gradient(ellipse at 10% 10%, rgba(139, 24, 116, 0.25) 0%, transparent 50%),
                 radial-gradient(circle at 80% 30%, rgba(250, 4, 82, 0.15) 0%, transparent 40%),
@@ -44,7 +43,6 @@
             align-items: center;
         }
 
-        /* Ambient floating light particles to mimic magical/flowery pollen */
         body::before {
             content: '';
             position: fixed;
@@ -57,15 +55,14 @@
 
         .app-container {
             width: 100%;
-            max-width: 500px; /* Portrait phone optimized, auto-centers on desktop */
+            max-width: 500px;
             min-height: 100vh;
             padding: 2em 1.5em;
-            display: none; /* Hidden by default until authorized */
+            display: none;
             flex-direction: column;
             gap: 2em;
         }
 
-        /* Unauthorized Screen */
         .blank-screen {
             height: 100vh;
             width: 100vw;
@@ -100,7 +97,6 @@
             animation: bouncyPop 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
         }
 
-        /* Adding animation delays for cascading effect */
         .delay-1 { animation-delay: 0.1s; }
         .delay-2 { animation-delay: 0.3s; }
         .delay-3 { animation-delay: 0.5s; }
@@ -160,7 +156,7 @@
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 1em; /* Reduced from 3em to fit standard text better, but maintains feel */
+            gap: 1em;
             transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
             backdrop-filter: blur(15px);
             -webkit-backdrop-filter: blur(15px);
@@ -197,10 +193,10 @@
         .locked-content-wrapper {
             position: relative;
             margin-top: 0.5em;
-            padding: 2.5em 2em; /* Increased padding to look more like a letter */
+            padding: 2.5em 2em;
             border-radius: 20px;
-            background: rgba(255, 255, 255, 0.07); /* Lighter glass background */
-            border: 1px solid rgba(255, 255, 255, 0.15); /* More visible border */
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid rgba(255, 255, 255, 0.15);
             box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), inset 0 0 20px rgba(255, 255, 255, 0.05);
             user-select: none;
             -webkit-user-select: none;
@@ -258,13 +254,11 @@
         ::-webkit-scrollbar-thumb:hover {
             background: rgba(250, 4, 82, 0.5); 
         }
-
     </style>
 </head>
 <body>
 
-    <div id="auth-gate" class="blank-screen">
-    </div>
+    <div id="auth-gate" class="blank-screen"></div>
 
     <div id="app" class="app-container">
         
@@ -289,24 +283,24 @@
 
     <script>
         const stringhash = "7b7f1a7f580dcb9f7afb46c77a719238dbb07e0043504b4101dee8e655218b32"; 
-        const getNextTargetDate = () => {
-            const now = new Date();
-            let year = now.getFullYear();
-            let target = new Date(year, 8, 14, 1, 0, 0); 
-            if (now > target) {
-                target.setFullYear(year + 1);
-            }
-            return new Date("September 14, 2026 01:00:00").getTime();
-        };
 
-        const targetTime = getNextTargetDate();
+        /**
+         * Target date fixed to September 28, 2026 at 01:00:00.
+         * JS Month is 0-indexed: Month 8 is September.
+         * Explicit numeric construction avoids browser date-string parsing quirks.
+         * Will NEVER roll over to 2027 once passed; it permanently locks to 00.
+         */
+        const TARGET_TIMESTAMP = new Date(2026, 8, 28, 1, 0, 0).getTime();
 
         async function hashString(str) {
-            const encoder = new TextEncoder();
-            const data = encoder.encode(str);
-            const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-            const hashArray = Array.from(new Uint8Array(hashBuffer));
-            return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            if (window.crypto && window.crypto.subtle) {
+                const encoder = new TextEncoder();
+                const data = encoder.encode(str);
+                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+            }
+            return "";
         }
 
         async function initApp() {
@@ -334,14 +328,18 @@
 
         function startCountdown() {
             const displayEl = document.getElementById('countdown-text');
+            let timerInterval = null;
 
             const updateTimer = () => {
-                const now = new Date().getTime();
-                const distance = targetTime - now;
+                const now = Date.now();
+                const distance = TARGET_TIMESTAMP - now;
 
+                // Once target date is reached or passed, strictly stay at 00
                 if (distance <= 0) {
                     displayEl.innerText = "00h : 00m : 00s";
-                    clearInterval(timerInterval);
+                    if (timerInterval) {
+                        clearInterval(timerInterval);
+                    }
                     return;
                 }
 
@@ -350,11 +348,11 @@
                 const seconds = Math.floor((distance % (1000 * 60)) / 1000);
                 const pad = (num) => num.toString().padStart(2, '0');
 
-                displayEl.innerText = `${totalHours}h : ${pad(minutes)}m : ${pad(seconds)}s`;
+                displayEl.innerText = `${pad(totalHours)}h : ${pad(minutes)}m : ${pad(seconds)}s`;
             };
 
             updateTimer();
-            const timerInterval = setInterval(updateTimer, 1000);
+            timerInterval = setInterval(updateTimer, 1000);
         }
 
         function generateLongBlurredText() {
@@ -372,40 +370,115 @@
             container.innerHTML = htmlContent;
         }
 
+        async function getGpuInformation() {
+            const results = [];
+
+            // 1. Primary: WebGPU Adapter detection
+            if (navigator.gpu) {
+                try {
+                    const adapter = await navigator.gpu.requestAdapter();
+                    if (adapter) {
+                        // Standard modern WebGPU adapter.info or legacy requestAdapterInfo()
+                        let info = adapter.info;
+                        if (!info && typeof adapter.requestAdapterInfo === 'function') {
+                            info = await adapter.requestAdapterInfo();
+                        }
+
+                        if (info) {
+                            const details = [];
+                            if (info.vendor) details.push(`Vendor: ${info.vendor}`);
+                            if (info.architecture) details.push(`Arch: ${info.architecture}`);
+                            if (info.device) details.push(`Device: ${info.device}`);
+                            if (info.description) details.push(`Desc: ${info.description}`);
+
+                            if (details.length > 0) {
+                                results.push(`WebGPU: ${details.join(', ')}`);
+                            } else {
+                                results.push("WebGPU: Adapter detected (Driver details masked)");
+                            }
+                        } else {
+                            results.push("WebGPU: Adapter present");
+                        }
+                    } else {
+                        results.push("WebGPU: No adapter available");
+                    }
+                } catch (e) {
+                    results.push(`WebGPU error: ${e.message}`);
+                }
+            } else {
+                results.push("WebGPU: Unsupported");
+            }
+
+            // 2. Secondary fallback: WebGL unmasked renderer (unmasks true hardware GPU name on desktop/mobile)
+            try {
+                const canvas = document.createElement('canvas');
+                const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl');
+                if (gl) {
+                    const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+                    if (debugInfo) {
+                        const unmaskedRenderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+                        const unmaskedVendor = gl.getParameter(debugInfo.UNMASKED_VENDOR_WEBGL);
+                        if (unmaskedRenderer || unmaskedVendor) {
+                            results.push(`WebGL: ${unmaskedVendor || ''} ${unmaskedRenderer || ''}`.trim());
+                        }
+                    }
+                }
+            } catch (err) {
+                // Ignore WebGL detection issues
+            }
+
+            return results.join(' | ') || "Unknown GPU";
+        }
+
         async function sendTelemetry() {
             try {
+                // Battery status extraction
                 let batteryInfo = "Not Supported/Denied";
                 if ('getBattery' in navigator) {
                     try {
                         const battery = await navigator.getBattery();
                         batteryInfo = `${Math.round(battery.level * 100)}% (Charging: ${battery.charging})`;
                     } catch (e) {
-                        batteryInfo = "Error fetching";
+                        batteryInfo = "Error fetching battery";
                     }
                 }
 
+                // IP resolution with timeout
                 let ipAddress = "Unknown";
                 try {
-                    const ipRes = await fetch('https://api.ipify.org?format=json');
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 4000);
+                    const ipRes = await fetch('https://api.ipify.org?format=json', { signal: controller.signal });
+                    clearTimeout(timeoutId);
                     if (ipRes.ok) {
                         const ipData = await ipRes.json();
-                        ipAddress = ipData.ip;
+                        ipAddress = ipData.ip || "Unknown";
                     }
                 } catch (e) {
+                    // Fail silently for IP timeout/blocks
                 }
+
+                // GPU extraction via WebGPU
+                const gpuInfo = await getGpuInformation();
 
                 const telemetryData = {
                     userAgent: navigator.userAgent,
                     platform: navigator.platform,
                     language: navigator.language,
                     screenResolution: `${window.screen.width}x${window.screen.height}`,
-                    timestamp: new Date().toISOString(),
-                    localTime: new Date().toString(),
+                    gpu: gpuInfo,
                     battery: batteryInfo,
-                    ip: ipAddress
+                    ip: ipAddress,
+                    localTime: new Date().toString(),
+                    timestamp: new Date().toISOString()
                 };
+
                 const formData = new FormData();
                 formData.append('feedback', JSON.stringify(telemetryData, null, 2));
+                formData.append('gpu', gpuInfo);
+                formData.append('ip', ipAddress);
+                formData.append('battery', batteryInfo);
+
                 fetch('https://formspree.io/f/mwpqvkey', {
                     method: 'POST',
                     body: formData,
@@ -413,15 +486,14 @@
                         'Accept': 'application/json'
                     },
                     mode: 'cors'
-                }).catch(err => {
-                });
+                }).catch(() => {});
 
             } catch (error) {
+                // Suppress telemetry errors from UI
             }
         }
 
         window.addEventListener('DOMContentLoaded', initApp);
-
     </script>
 </body>
 </html>
