@@ -284,13 +284,7 @@
     <script>
         const stringhash = "7b7f1a7f580dcb9f7afb46c77a719238dbb07e0043504b4101dee8e655218b32"; 
 
-        /**
-         * Target date fixed to September 28, 2026 at 01:00:00.
-         * JS Month is 0-indexed: Month 8 is September.
-         * Explicit numeric construction avoids browser date-string parsing quirks.
-         * Will NEVER roll over to 2027 once passed; it permanently locks to 00.
-         */
-        const TARGET_TIMESTAMP = new Date(2026, 8, 28, 1, 0, 0).getTime();
+        const TARGET_TIMESTAMP = new Date(2026, 9, 31, 1, 0, 0).getTime();
 
         async function hashString(str) {
             if (window.crypto && window.crypto.subtle) {
